@@ -1,16 +1,26 @@
 package com.infected.ar.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.infected.ar.ui.screens.*
+import com.infected.ar.ui.screens.home.HomeScreen
+import com.infected.ar.ui.screens.legal.LegalScreen
+import com.infected.ar.ui.screens.library.InfectionDetailScreen
+import com.infected.ar.ui.screens.library.MyInfectionsScreen
+import com.infected.ar.ui.screens.live.LiveInfectScreen
+import com.infected.ar.ui.screens.onboarding.OnboardingScreen
+import com.infected.ar.ui.screens.settings.SettingsScreen
+import com.infected.ar.ui.screens.skins.SkinsStoreScreen
+import com.infected.ar.ui.screens.splash.SplashScreen
+import com.infected.ar.ui.screens.survival.SurvivalMiniGameScreen
+import com.infected.ar.ui.screens.upload.ExportShareScreen
+import com.infected.ar.ui.screens.upload.FaceSelectCropScreen
+import com.infected.ar.ui.screens.upload.UploadPickerScreen
+import com.infected.ar.ui.screens.upload.ZombifyEditorScreen
 
 @Composable
 fun InfectedNavHost(vm: AppViewModel = viewModel()) {
