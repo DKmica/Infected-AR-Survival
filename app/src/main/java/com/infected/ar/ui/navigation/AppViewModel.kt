@@ -32,4 +32,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun saveInfection(item: InfectionEntity) = viewModelScope.launch { app.infectionRepository.save(item) }
 
     fun deleteInfection(item: InfectionEntity) = viewModelScope.launch { app.infectionRepository.delete(item) }
+
+    fun purchaseSkin(name: String, price: Int) = viewModelScope.launch {
+        app.settingsDataStore.purchaseSkin(name, price)
+    }
+
+    fun rewardCoins(amount: Int) = viewModelScope.launch {
+        app.settingsDataStore.addCoins(amount)
+    }
 }
