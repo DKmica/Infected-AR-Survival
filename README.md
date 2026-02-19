@@ -37,7 +37,7 @@ com.infected.ar
 
 ## MVP Notes / Limitations
 - Upload flow has full screen chain with placeholder crop stage and procedural overlays.
-- Reveal export currently uses GIF placeholder fallback; MP4 MediaCodec/Muxer is planned next.
+- Reveal export now writes a valid minimal GIF fallback and shares it; MP4 MediaCodec/Muxer is still planned next.
 - Survival mini-game uses 2D rush overlay with tap scoring/combos.
 - Includes 10 procedural vector overlay assets to swap with production art.
 

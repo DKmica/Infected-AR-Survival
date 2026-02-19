@@ -25,8 +25,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -94,26 +94,52 @@ fun UploadPickerScreen(nav: NavController) {
 fun FaceSelectCropScreen(nav: NavController) {
     val context = LocalContext.current
     val detector = remember { PhotoFaceDetector() }
+    val snackbar = remember { SnackbarHostState() }
     val uriString = nav.previousBackStackEntry?.savedStateHandle?.get<String>("uploadUri")
     val faces = remember { mutableStateListOf<Rect>() }
     var selectedFaceIndex by remember { mutableStateOf<Int?>(null) }
+    var isDetecting by remember { mutableStateOf(false) }
+    var detectionError by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uriString) {
         val localUri = uriString ?: return@LaunchedEffect
-        val bitmap = detector.decodeBitmap(context, Uri.parse(localUri))
-        val detected = detector.detectFaces(bitmap).map { it.boundingBox }
-        faces.clear()
-        faces.addAll(detected)
-        selectedFaceIndex = if (detected.size == 1) 0 else null
+        isDetecting = true
+        val result = runCatching {
+            val bitmap = detector.decodeBitmap(context, Uri.parse(localUri))
+            detector.detectFaces(bitmap).map { it.boundingBox }
+        }
+        result.onSuccess { detected ->
+            faces.clear()
+            faces.addAll(detected)
+            selectedFaceIndex = if (detected.size == 1) 0 else null
+            if (detected.isEmpty()) {
+                detectionError = "No faces found. Try another photo with a clearer face."
+            }
+        }.onFailure {
+            faces.clear()
+            selectedFaceIndex = null
+            detectionError = "Couldn't analyze photo. Please pick another image."
+        }
+        isDetecting = false
+    }
+
+    LaunchedEffect(detectionError) {
+        val error = detectionError ?: return@LaunchedEffect
+        snackbar.showSnackbar(error)
+        detectionError = null
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SnackbarHost(hostState = snackbar)
         GlitchHeader("Select Face")
         if (uriString == null) {
             Text("No image selected. Return to picker.")
         } else {
-            Text("Detected ${faces.size} face(s). Select one to continue.")
-            if (faces.isEmpty()) Text("No faces found. Try another photo with a clearer face.")
+            if (isDetecting) {
+                Text("Analyzing photo for faces…")
+            } else {
+                Text("Detected ${faces.size} face(s). Select one to continue.")
+            }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(faces) { index, face ->
                     OutlinedCard(onClick = { selectedFaceIndex = index }) {
@@ -134,6 +160,8 @@ fun FaceSelectCropScreen(nav: NavController) {
                 nav.currentBackStackEntry?.savedStateHandle?.set("selectedFaceRect", ZombifyRenderer.encodeRect(faceRect))
                 nav.currentBackStackEntry?.savedStateHandle?.set("uploadUri", uriString)
                 nav.navigate(Routes.ZombifyEditor)
+            } else {
+                detectionError = "Select a face before continuing."
             }
         }
     }
@@ -148,12 +176,14 @@ fun ZombifyEditorScreen(
     val context = LocalContext.current
     val exporter = remember { RevealExporter(context) }
     val detector = remember { PhotoFaceDetector() }
+    val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val selectedFace = nav.previousBackStackEntry?.savedStateHandle?.get<Int>("selectedFace")
     val selectedFaceRectRaw = nav.previousBackStackEntry?.savedStateHandle?.get<String>("selectedFaceRect")
     val uploadUri = nav.previousBackStackEntry?.savedStateHandle?.get<String>("uploadUri")
 
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SnackbarHost(hostState = snackbar)
         GlitchHeader("Zombify Editor")
         Text("Before/After toggle placeholder")
         Text("Selected face: ${selectedFace?.plus(1) ?: "None"}")
@@ -179,7 +209,11 @@ fun ZombifyEditorScreen(
                 )
                 val sourceBitmap = uploadUri?.let { detector.decodeBitmap(context, Uri.parse(it)) }
                 val rendered = sourceBitmap?.let { ZombifyRenderer.render(it, rect, editorVm.style, sliders) }
-                val afterFile = rendered?.let { exporter.exportBeforeAfterPng(it, "after_${System.currentTimeMillis()}") }
+                if (rendered == null) {
+                    snackbar.showSnackbar("Unable to render. Pick a valid image and face.")
+                    return@launch
+                }
+                val afterFile = exporter.exportBeforeAfterPng(rendered, "after_${System.currentTimeMillis()}")
                 vm.saveInfection(
                     InfectionEntity(
                         UUID.randomUUID().toString(),
@@ -188,9 +222,9 @@ fun ZombifyEditorScreen(
                         editorVm.style,
                         (editorVm.rot * 100).toInt(),
                         Json.encodeToString(sliders),
-                        afterFile?.absolutePath ?: "",
+                        afterFile.absolutePath,
                         uploadUri,
-                        afterFile?.absolutePath,
+                        afterFile.absolutePath,
                         null
                     )
                 )
@@ -212,6 +246,8 @@ fun ZombifyEditorScreen(
                 if (rendered != null) {
                     val file = exporter.exportBeforeAfterPng(rendered, "share_${System.currentTimeMillis()}")
                     ShareHelper.shareFile(context, file, "image/png")
+                } else {
+                    snackbar.showSnackbar("Unable to share. Render failed for this selection.")
                 }
             }
         }
@@ -221,9 +257,40 @@ fun ZombifyEditorScreen(
 
 @Composable
 fun ExportShareScreen(nav: NavController) {
+    val context = LocalContext.current
+    val exporter = remember { RevealExporter(context) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var lastGifPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var isExporting by rememberSaveable { mutableStateOf(false) }
+
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SnackbarHost(hostState = snackbar)
         GlitchHeader("Export & Share")
-        Text("MVP fallback: GIF placeholder export implemented; MP4 via MediaCodec/Muxer is next step.")
+        Text("MVP fallback: GIF export is available; MP4 via MediaCodec/Muxer is next step.")
+        PrimaryAction("Export Reveal GIF") {
+            if (isExporting) return@PrimaryAction
+            isExporting = true
+            runCatching {
+                exporter.exportRevealGifPlaceholder("reveal_${System.currentTimeMillis()}")
+            }.onSuccess { file ->
+                lastGifPath = file.absolutePath
+                scope.launch { snackbar.showSnackbar("Reveal GIF exported") }
+            }.onFailure {
+                scope.launch { snackbar.showSnackbar("Export failed. Please retry.") }
+            }
+            isExporting = false
+        }
+        if (lastGifPath != null) {
+            PrimaryAction("Share Last GIF") {
+                val gifFile = java.io.File(lastGifPath ?: return@PrimaryAction)
+                if (!gifFile.exists()) {
+                    scope.launch { snackbar.showSnackbar("Export file missing. Please export again.") }
+                    return@PrimaryAction
+                }
+                ShareHelper.shareFile(context, gifFile, "image/gif")
+            }
+        }
         PrimaryAction("Back Home") { nav.navigate(Routes.Home) }
     }
 }
