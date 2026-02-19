@@ -1,6 +1,9 @@
 package com.infected.ar
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -12,7 +15,17 @@ class NavSmokeTest {
 
     @Test
     fun onboardingToHomeSmoke() {
-        composeRule.onNodeWithText("INFECTED AR").assertExists()
-        // Skeleton only: extend with deterministic dispatchers/clock for stable nav assertions.
+        composeRule.onNodeWithText("INFECTED AR").assertIsDisplayed()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasText("Welcome to INFECTED AR")).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Next").performClick()
+        composeRule.onNodeWithText("Next").performClick()
+        composeRule.onNodeWithText("Start Infecting").performClick()
+
+        composeRule.onNodeWithText("Live Infect").assertIsDisplayed()
+        composeRule.onNodeWithText("Upload Photo Infect").assertIsDisplayed()
     }
 }

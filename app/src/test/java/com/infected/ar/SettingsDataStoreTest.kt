@@ -7,6 +7,7 @@ import com.infected.ar.data.datastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,5 +26,17 @@ class SettingsDataStoreTest {
         assertTrue(state.hapticsEnabled)
         assertTrue(state.ownedSkins.contains("Necro Veins"))
         assertEquals(110, state.coins)
+    }
+
+    @Test
+    fun rejectsPurchaseWhenInsufficientCoins() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.dataStoreFile("infected_settings.preferences_pb").delete()
+        val store = SettingsDataStore(context)
+        val bought = store.purchaseSkin("Demon Glow", 999)
+        val state = store.settings.first()
+        assertFalse(bought)
+        assertFalse(state.ownedSkins.contains("Demon Glow"))
+        assertEquals(120, state.coins)
     }
 }

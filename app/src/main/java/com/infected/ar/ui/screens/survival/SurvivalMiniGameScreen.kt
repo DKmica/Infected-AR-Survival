@@ -1,6 +1,10 @@
 package com.infected.ar.ui.screens.survival
 
 import android.Manifest
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color as AColor
+import android.graphics.Paint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -27,9 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.infected.ar.media.export.RevealExporter
+import com.infected.ar.media.export.ShareHelper
 import com.infected.ar.ui.components.PrimaryAction
 import com.infected.ar.ui.navigation.Routes
 import kotlinx.coroutines.delay
@@ -37,6 +45,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun SurvivalMiniGameScreen(nav: NavController) {
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val exporter = remember { RevealExporter(context) }
     var permissionGranted by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionGranted = it }
 
@@ -45,6 +55,7 @@ fun SurvivalMiniGameScreen(nav: NavController) {
     var combo by remember { mutableIntStateOf(1) }
     var timeLeft by remember { mutableIntStateOf(45) }
     var scale by remember { mutableFloatStateOf(0.2f) }
+    val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) {
         launcher.launch(Manifest.permission.CAMERA)
@@ -72,6 +83,7 @@ fun SurvivalMiniGameScreen(nav: NavController) {
 
         Canvas(Modifier.fillMaxSize().clickable {
             if (timeLeft > 0) {
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                 hp -= 1
                 score += 10 * combo
                 combo++
@@ -94,7 +106,17 @@ fun SurvivalMiniGameScreen(nav: NavController) {
         if (timeLeft == 0) {
             Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.6f)).padding(16.dp)) {
                 Text("Run Over. Score $score")
-                PrimaryAction("Share Result") {}
+                PrimaryAction("Share Result") {
+                    val bmp = Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bmp)
+                    canvas.drawColor(AColor.BLACK)
+                    val paint = Paint().apply { color = AColor.RED; textSize = 48f }
+                    canvas.drawText("INFECTED AR SURVIVAL", 120f, 220f, paint)
+                    canvas.drawText("SCORE: $score", 220f, 340f, paint)
+                    canvas.drawText("COMBO: x$combo", 220f, 420f, paint)
+                    val file = exporter.exportBeforeAfterPng(bmp, "survival_${System.currentTimeMillis()}")
+                    ShareHelper.shareFile(context, file, "image/png")
+                }
                 PrimaryAction("Back Home") { nav.navigate(Routes.Home) }
             }
         }
