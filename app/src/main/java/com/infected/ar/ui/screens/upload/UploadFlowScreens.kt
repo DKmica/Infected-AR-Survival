@@ -47,7 +47,6 @@ import com.infected.ar.util.ImageCaptureFileFactory
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
@@ -55,6 +54,7 @@ fun UploadPickerScreen(nav: NavController) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var pendingCaptureUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickerError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -67,16 +67,15 @@ fun UploadPickerScreen(nav: NavController) {
         if (success && uri != null) {
             nav.currentBackStackEntry?.savedStateHandle?.set("uploadUri", uri)
             nav.navigate(Routes.FaceSelect)
+        } else {
+            pickerError = "Photo capture was cancelled or failed."
         }
     }
 
-    LaunchedEffect(Unit) {
-        nav.currentBackStackEntry?.savedStateHandle?.getStateFlow("uploadPickerError", "")?.collectLatest { msg ->
-            if (msg.isNotBlank()) {
-                snackbar.showSnackbar(msg)
-                nav.currentBackStackEntry?.savedStateHandle?.set("uploadPickerError", "")
-            }
-        }
+    LaunchedEffect(pickerError) {
+        val msg = pickerError ?: return@LaunchedEffect
+        snackbar.showSnackbar(msg)
+        pickerError = null
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

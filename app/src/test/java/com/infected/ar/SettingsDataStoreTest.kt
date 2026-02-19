@@ -39,4 +39,17 @@ class SettingsDataStoreTest {
         assertFalse(state.ownedSkins.contains("Demon Glow"))
         assertEquals(120, state.coins)
     }
+    @Test
+    fun doesNotDoublePurchaseOwnedSkin() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.dataStoreFile("infected_settings.preferences_pb").delete()
+        val store = SettingsDataStore(context)
+        val first = store.purchaseSkin("Necro Veins", 40)
+        val second = store.purchaseSkin("Necro Veins", 40)
+        val state = store.settings.first()
+        assertTrue(first)
+        assertFalse(second)
+        assertEquals(80, state.coins)
+    }
+
 }
