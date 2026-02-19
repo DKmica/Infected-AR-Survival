@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.net.Uri
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
@@ -99,7 +100,9 @@ fun UploadPickerScreen(nav: NavController) {
     }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         GlitchHeader("Upload Photo Infect")
-        PrimaryAction("Pick from gallery") { pickMedia.launch(ActivityResultContracts.PickVisualMedia.ImageOnly) }
+        PrimaryAction("Pick from gallery") { 
+            pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) 
+        }
         PrimaryAction("Take photo") { nav.navigate(Routes.FaceSelect) }
     }
 }
