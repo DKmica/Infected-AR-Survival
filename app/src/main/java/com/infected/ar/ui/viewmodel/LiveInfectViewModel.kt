@@ -21,6 +21,8 @@ class LiveInfectViewModel : ViewModel() {
         private set
     var infectionStage by mutableStateOf("IDLE")
         private set
+    var message by mutableStateOf<String?>(null)
+        private set
 
     fun onIntensityChanged(value: Float) {
         intensity = value
@@ -32,9 +34,18 @@ class LiveInfectViewModel : ViewModel() {
 
     fun onFacesDetected(count: Int) {
         faceCount = count
+        if (count == 0 && !infecting) {
+            message = "No face detected. Point camera at a face."
+        } else if (count > 0) {
+            message = null
+        }
     }
 
-    fun triggerInfectionSequence() {
+    fun triggerInfectionSequence(onComplete: () -> Unit) {
+        if (faceCount == 0) {
+            message = "Cannot infect: no face detected."
+            return
+        }
         viewModelScope.launch {
             infecting = true
             infectionStage = "GLITCH"
@@ -45,6 +56,11 @@ class LiveInfectViewModel : ViewModel() {
             delay(700)
             infecting = false
             infectionStage = "IDLE"
+            onComplete()
         }
+    }
+
+    fun dismissMessage() {
+        message = null
     }
 }

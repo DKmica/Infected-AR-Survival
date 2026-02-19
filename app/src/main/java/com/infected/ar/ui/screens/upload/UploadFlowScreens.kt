@@ -83,6 +83,7 @@ fun FaceSelectCropScreen(nav: NavController) {
             Text("No image selected. Return to picker.")
         } else {
             Text("Detected ${faces.size} face(s). Select one to continue.")
+            if (faces.isEmpty()) Text("No faces found. Try another photo with a clearer face.")
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(faces) { index, face ->
                     OutlinedCard(onClick = { selectedFaceIndex = index }) {

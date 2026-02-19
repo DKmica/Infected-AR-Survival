@@ -19,7 +19,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +53,7 @@ fun LiveInfectScreen(nav: NavController, appVm: AppViewModel, liveVm: LiveInfect
     var permissionGranted by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionGranted = it }
     val detector = remember { FaceDetectorProcessor { liveVm.onFacesDetected(it.size) } }
+    val snackbarHostState = remember { SnackbarHostState() }
     val overlayAlpha = animateFloatAsState(
         targetValue = when (liveVm.infectionStage) {
             "GLITCH" -> 0.12f
@@ -61,7 +65,13 @@ fun LiveInfectScreen(nav: NavController, appVm: AppViewModel, liveVm: LiveInfect
     ).value
 
     LaunchedEffect(Unit) { launcher.launch(Manifest.permission.CAMERA) }
+    LaunchedEffect(liveVm.message) {
+        val msg = liveVm.message ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(msg)
+        liveVm.dismissMessage()
+    }
     Box(Modifier.fillMaxSize()) {
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.TopCenter))
         if (permissionGranted) {
             AndroidView(factory = { ctx ->
                 PreviewView(ctx).apply {
@@ -110,11 +120,18 @@ fun LiveInfectScreen(nav: NavController, appVm: AppViewModel, liveVm: LiveInfect
                     AssistChip(onClick = { liveVm.onStyleChanged(it) }, label = { Text(it) })
                 }
             }
-            PrimaryAction("INFECT") {
-                liveVm.triggerInfectionSequence()
-                appVm.saveInfection(
-                    InfectionEntity(UUID.randomUUID().toString(), System.currentTimeMillis(), "LIVE", liveVm.style, (liveVm.intensity * 100).toInt(), "{}", "", null, null, null)
-                )
+            if (liveVm.faceCount > 0) {
+                PrimaryAction("INFECT") {
+                    liveVm.triggerInfectionSequence {
+                        appVm.saveInfection(
+                            InfectionEntity(UUID.randomUUID().toString(), System.currentTimeMillis(), "LIVE", liveVm.style, (liveVm.intensity * 100).toInt(), "{}", "", null, null, null)
+                        )
+                    }
+                }
+            } else {
+                Button(onClick = { liveVm.triggerInfectionSequence {} }, modifier = Modifier.padding(vertical = 4.dp)) {
+                    Text("INFECT")
+                }
             }
             PrimaryAction("Back") { nav.popBackStack() }
         }
